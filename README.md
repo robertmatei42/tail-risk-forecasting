@@ -1,6 +1,8 @@
 # Tail-Risk Forecasting
 
-*Work in progress.*
+## Status
+Work in progress. Done: data pipeline and checks, volatility proxies, historical-simulation VaR/ES with Kupiec backtest.
+Next: Christoffersen independence test, GARCH and HAR-based VaR, conformal calibration and e-backtesting.
 
 ## Goal
 
