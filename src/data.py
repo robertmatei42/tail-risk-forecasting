@@ -11,9 +11,9 @@ warnings.filterwarnings('ignore')
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 
-def clean_download(ticker: str, start: str) -> pd.DataFrame:
-    """Download daily OHLC prices for `ticker` from `start` and save them to data/<name>.csv."""
-    data = yf.download(tickers=ticker, start=start, progress=False)
+def clean_download(ticker: str, start: str, end: str) -> pd.DataFrame:
+    """Download daily OHLC prices for `ticker` from `start` until `end` and save them to data/<name>.csv."""
+    data = yf.download(tickers=ticker, start=start, end=end, progress=False)
 
     if data.empty:
         raise ValueError(f"No data returned for {ticker}. Check the ticker or your connection.")
@@ -67,8 +67,9 @@ def check_prices(prices: pd.DataFrame) -> dict:
     return info_dict
 
 
-prices = clean_download("^GSPC", "2015-01-01")
+"""prices = clean_download("^GSPC", "2015-01-01")
 loss = compute_losses(prices)
 pv = parkinson_variance(prices)
 print(check_prices(prices))
 
+"""
