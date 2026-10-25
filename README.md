@@ -34,9 +34,13 @@ As a baseline, the next day 99% VaR and ES metrics are forecast using historical
 
 Let $L_t = -\ln(P_t / P_{t-1})$ be the daily loss and $m = 250$ the window length. The one-day-ahead forecasts are
 
-$$\text{VaR}_{t+1}^{99\%} = Percentile\left(\{L_\tau\}_{\tau=t-m+1}^{t}, 0.99\right)$$
+```math
+\text{VaR}_{t+1}^{99\%} = \text{Percentile}\left(\lbrace L_\tau \rbrace_{\tau=t-m+1}^{t},\ 0.99\right)
+```
 
-$$\text{ES}_{t+1}^{99\%} = \frac{\sum_{\tau=t-m+1}^{t} L_\tau \, \mathbf{1}\{L_\tau \ge \text{VaR}_{t+1}^{99\%}\}}{\sum_{\tau=t-m+1}^{t} \mathbf{1}\{L_\tau \ge \text{VaR}_{t+1}^{99\%}\}}$$
+```math
+\text{ES}_{t+1}^{99\%} = \frac{\sum_{\tau=t-m+1}^{t} L_\tau \, \mathbf{1}\lbrace L_\tau \ge \text{VaR}_{t+1}^{99\%} \rbrace}{\sum_{\tau=t-m+1}^{t} \mathbf{1}\lbrace L_\tau \ge \text{VaR}_{t+1}^{99\%} \rbrace}
+```
 
 where $L_\tau$ is the daily loss, $m = 250$ the window length, and $\mathbf{1}\{\cdot\}$ the indicator function
 
