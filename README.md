@@ -44,6 +44,24 @@ Let $L_t = -\ln(P_t / P_{t-1})$ be the daily loss and $m = 250$ the window lengt
 
 where $L_\tau$ is the daily loss, $m = 250$ the window length, and $\mathbf{1}\{\cdot\}$ the indicator function
 
+### Exponentially Weighted Moving Average (RiskMetrics)
+
+To capture volatility clustering, I add the RiskMetrics model. One-day-ahead variance forecasts are updated as
+
+```math
+\sigma_{t+1}^2 = \lambda\,\sigma_t^2 + (1-\lambda)\,L_t^2, \qquad \lambda = 0.94,
+```
+
+, initialised with the sample variance of the first 30 losses. Assuming normally distributed losses, VaR and ES follow from the inverse of the standard normal CDF (`norm.ppf`) and the standard normal density (`norm.pdf`):
+
+```math
+\text{VaR}_{t+1}^{99\%} = \sigma_{t+1}\,\Phi^{-1}_{0.99}
+```
+
+```math
+\text{ES}_{t+1}^{99\%} = \sigma_{t+1}\,\frac{\phi\big(\Phi^{-1}_{0.99}\big)}{0.01}
+```
+
 ## Results
 
 ### Historical simulation (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
@@ -64,6 +82,24 @@ where $L_\tau$ is the daily loss, $m = 250$ the window length, and $\mathbf{1}\{
 
 
 As expected, historical simulation fails the unconditional coverage, independence and conditional coverage tests. Extreme losses occur more often than the VaR model predicts, and they cluster over time: the probability of a violation is 1.4% after a day without one, but 11.6% after a day with one, about eight times higher. The 250-day window makes the model slow to react to volatility shocks. VaR is too low in the first days of a crisis, and then stays elevated for a full year until the shock leaves the window, overstating risk, where opportunity costs come into play. This motivates conditional volatility models such as GARCH, which update the volatility forecast every day using the latest returns.
+
+
+### Exponentially Weighted Moving Average (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
+
+<p align="center">
+  <img src="results/ewma_var.png" alt="Historical-simulation VaR vs daily loss with violations" width="700">
+</p>
+
+*Daily losses (grey), the 99% EWMA VaR forecast (teal), and the days on which the loss exceeded VaR (dots).*
+
+| | Historical simulation | EWMA (RiskMetrics) |
+|---|---|---|
+| Violations (expected 27.0) | 43 (1.59%) | 59 (2.18%) |
+| Kupiec (unconditional coverage) | LR = 8.09, p = 0.004, rejected | LR = 28.58, p < 0.001, rejected |
+| Christoffersen (independence) | LR = 12.17, p = 0.0005, rejected | LR = 1.75, p = 0.19, **not rejected** |
+| Conditional coverage | LR = 20.27, p < 0.001, rejected | LR = 30.33, p < 0.001, rejected |
+
+Both models are evaluated on the same sample of 2,702 days. As expected, since EWMA is a special case of GARCH(1,1), the model captures volatility clustering: VaR rises immediately after a shock, and the independence test is no longer rejected. On the other hand, EWMA breaches its VaR far more often than expected, on 2.18% of days instead of 1%. This is due to the fatter tails of equity losses, which make the 99% quantile of the normal distribution (about 2.33 standard deviations) too low for a reliable forecast. Therefore, EWMA fixes when VaR reacts, but not how far into the tail it reaches. This motivates filtered historical simulation, which keeps the EWMA volatility but replaces the normal quantile with the empirical quantile of standardised losses.
 
 ## References
 
