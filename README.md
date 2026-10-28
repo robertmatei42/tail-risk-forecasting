@@ -62,6 +62,30 @@ To capture volatility clustering, I add the RiskMetrics model. One-day-ahead var
 \text{ES}_{t+1}^{99\%} = \sigma_{t+1}\,\frac{\phi\big(\Phi^{-1}_{0.99}\big)}{0.01}
 ```
 
+### Filtered historical simulation (FHS)
+
+The filtered historical simulation combines the EWMA volatility estimate with the empirical distribution of the standardised losses. This keeps the fast reaction to volatility of the EWMA model, without assuming that losses are normally distributed. First, each loss is standardised by its volatility estimate:
+
+```math
+z_\tau = \frac{L_\tau}{\sigma_\tau}
+```
+
+Thereafter, the empirical 99% quantile of the past 250 standardised losses is computed:
+
+```math
+\hat{q}_{t+1} = \text{Percentile}\left(\lbrace z_\tau \rbrace_{\tau=t-m+1}^{t},\ 0.99\right)
+```
+
+VaR and ES are then obtained by scaling the empirical quantile and tail mean of the standardised losses with the EWMA volatility forecast:
+
+```math
+\text{VaR}_{t+1}^{99\%} = \sigma_{t+1}\,\hat{q}_{t+1}
+```
+
+```math
+\text{ES}_{t+1}^{99\%} = \sigma_{t+1}\,\frac{\sum_{\tau=t-m+1}^{t} z_\tau\,\mathbf{1}\lbrace z_\tau \ge \hat{q}_{t+1}\rbrace}{\sum_{\tau=t-m+1}^{t} \mathbf{1}\lbrace z_\tau \ge \hat{q}_{t+1}\rbrace}
+```
+
 ## Results
 
 ### Historical simulation (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
@@ -100,6 +124,27 @@ As expected, historical simulation fails the unconditional coverage, independenc
 | Conditional coverage | LR = 20.27, p < 0.001, rejected | LR = 30.33, p < 0.001, rejected |
 
 Both models are evaluated on the same sample of 2,702 days. As expected, since EWMA is a special case of GARCH(1,1), the model captures volatility clustering: VaR rises immediately after a shock, and the independence test is no longer rejected. On the other hand, EWMA breaches its VaR far more often than expected, on 2.18% of days instead of 1%. This is due to the fatter tails of equity losses, which make the 99% quantile of the normal distribution (about 2.33 standard deviations) too low for a reliable forecast. Therefore, EWMA fixes when VaR reacts, but not how far into the tail it reaches. This motivates filtered historical simulation, which keeps the EWMA volatility but replaces the normal quantile with the empirical quantile of standardised losses.
+
+
+### Model comparison: HS, EWMA and FHS (Feb 2016 – Sep 2026, 2,672 days)
+
+All three models are evaluated on the same sample of 2,672 days, starting once every model has a full estimation window. The historical-simulation figures therefore differ slightly from the section above.
+
+| | Historical simulation | EWMA (RiskMetrics) | FHS |
+|---|---|---|---|
+| Violations (expected 26.7) | 43 (1.61%) | 59 (2.21%) | 35 (1.31%) |
+| Kupiec (unconditional coverage) | LR = 8.46, p = 0.004, rejected | LR = 29.31, p < 0.001, rejected | LR = 2.36, p = 0.124, not rejected |
+| Christoffersen (independence) | LR = 12.07, p = 0.0005, rejected | LR = 1.71, p = 0.191, not rejected | LR = 2.95, p = 0.086, not rejected |
+| Conditional coverage | LR = 20.53, p < 0.001, rejected | LR = 31.02, p < 0.001, rejected | LR = 5.31, p = 0.070, not rejected |
+
+<p align="center">
+  <img src="results/var_comparison_2020.png" alt="HS, EWMA and FHS VaR around the March 2020 crash" width="700">
+</p>
+
+*Daily losses and the 99% VaR forecasts of the three models around the COVID-19 crash in March 2020.*
+
+As expected, historical simulation fails all three tests: it reacts too slowly to volatility shocks, so its violations are both too frequent and clustered. The EWMA model solves the clustering, since the independence test is no longer rejected, but it breaches its VaR on 2.2% of days instead of 1%. This is due to the fatter tails of equity losses, which the normal distribution underestimates. Filtered historical simulation combines the strengths of both models: it keeps the fast reaction of EWMA to volatility, while the empirical quantile of the standardised losses captures the fat tails. As a result, FHS is the only model that passes all three tests at the 5% level. However, the independence test is borderline (p = 0.086) and the number of violations remains somewhat above the expected 26.7, so some clustering and tail risk remain.
+
 
 ## References
 

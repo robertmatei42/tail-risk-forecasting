@@ -89,15 +89,3 @@ def backtest_summary(hit: pd.Series, model: str, p:float = 0.01)-> pd.DataFrame:
     save_data['LR_cc'], save_data['p_cc'] = conditional_coverage(hit)['LR_conditional'], conditional_coverage(hit)['p_value']
 
     return pd.DataFrame(data = save_data, index=[model])
-
-def summary_to_markdown(df: pd.DataFrame) -> str:
-    """Rounds a backtest summary and returns it as a Markdown table for the README."""
-    out = df.copy()
-    # round the LR columns to 2 decimals and the p-value columns to 4
-    for LRS in ['LR_uc', 'LR_ind', 'LR_cc']:
-        out[LRS] = out[LRS].round(2)
-
-    for ps in ['p_uc', 'p_ind', 'p_cc']:   
-        out[ps] = out[ps].round(4)
-        
-    return out.to_markdown()

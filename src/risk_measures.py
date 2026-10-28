@@ -24,6 +24,7 @@ def ewma_volatility(losses: pd.Series, lam: float = 0.94, init_window: int = 30)
 
     return pd.Series(np.sqrt(variances), index=losses.index, name="ewma_vol")
 
+
 def ewma_var_es(sigma: pd.Series, alpha: float = 0.99) -> pd.DataFrame:
     """Exponentially Weighted Moving Average Method for VaR and ES forecasts for the next day. Takes the loss Series as primary argument. 
     Returns a `pd.DataFrame` containing both measures.""" 
@@ -33,3 +34,17 @@ def ewma_var_es(sigma: pd.Series, alpha: float = 0.99) -> pd.DataFrame:
     ES = (sigma * norm.pdf(z)) / (1 - alpha)
 
     return pd.DataFrame({'VaR' : VaR, 'ES' : ES}, index = sigma.index)
+
+def fhs_var_es(losses: pd.Series, sigma: pd.Series, window: int = 250, alpha:float = 0.99): 
+    """Returns the Filtered Historical Simulation VaR and ES forecasts for the next day. Takes the loss Series as primary argument. 
+    Returns a `pd.DataFrame` containing both measures."""
+
+    z = losses / sigma
+    z_q = z.rolling(window).quantile(alpha).shift(1)
+    z_es = z.rolling(window).apply(lambda x: x[x >=np.quantile(x, alpha)].mean(), raw=True).shift(1)
+
+    VaR = sigma * z_q
+    ES = sigma * z_es
+
+    return pd.DataFrame({'VaR': VaR, 'ES': ES})
+
