@@ -145,6 +145,20 @@ All three models are evaluated on the same sample of 2,672 days, starting once e
 
 As expected, historical simulation fails all three tests: it reacts too slowly to volatility shocks, so its violations are both too frequent and clustered. The EWMA model solves the clustering, since the independence test is no longer rejected, but it breaches its VaR on 2.2% of days instead of 1%. This is due to the fatter tails of equity losses, which the normal distribution underestimates. Filtered historical simulation combines the strengths of both models: it keeps the fast reaction of EWMA to volatility, while the empirical quantile of the standardised losses captures the fat tails. As a result, FHS is the only model that passes all three tests at the 5% level. However, the independence test is borderline (p = 0.086) and the number of violations remains somewhat above the expected 26.7, so some clustering and tail risk remain.
 
+### Robustness: RiskMetrics decay factor and window length
+
+To check whether the FHS results depend on the chosen parameters, a sensitivity analysis is estimated using $\lambda\in \{0.94, 0.97, 0.99\}$ and estimation windows of 250 and 500 days. 
+
+| $\lambda$, window | Violations (exp. 24.2) | p (Kupiec) | p (independence) | p (cond. coverage) |
+|---|---|---|---|---|
+| 0.94, 250 | 33 | 0.089 | 0.082 | 0.052 |
+| 0.94, 500 | 29 | 0.344 | 0.049 | 0.091 |
+| 0.97, 250 | 34 | 0.060 | 0.012 | 0.007 |
+| 0.97, 500 | 25 | 0.874 | 0.002 | 0.007 |
+| 0.99, 250 | 44 | < 0.001 | 0.008 | < 0.001 |
+| 0.99, 500 | 37 | 0.015 | 0.002 | < 0.001 |
+
+The result depends mainly on the decay factor. With $\lambda$ = 0.94, the RiskMetrics standard for daily data, the volatility estimate reacts quickly enough to remove most of the clustering. As $\lambda$ increases, volatility adapts more slowly and the clustering returns. For example, at $\lambda$ = 0.99, FHS fails all three tests, much like historical simulation. A longer window mainly improves coverage, since the empirical quantile is estimated from more tail observations, but it does not fix the clustering. The fast reaction of the volatility estimate is therefore the key ingredient of the model.
 
 ## References
 
