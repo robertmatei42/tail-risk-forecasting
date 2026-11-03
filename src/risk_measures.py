@@ -48,3 +48,25 @@ def fhs_var_es(losses: pd.Series, sigma: pd.Series, window: int = 250, alpha:flo
 
     return pd.DataFrame({'VaR': VaR, 'ES': ES})
 
+def aci_ewma_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma: float = 0.005):
+    """Adaptive conformal inference (ACI) VaR: EWMA VaR whose miss level a is updated after each day’s hit. Returns a DataFrame with VaR and a"""
+
+    a = 1 - alpha
+    VaR = np.full(losses.size, np.nan)
+    aS = np.full(losses.size, np.nan)
+
+    for t in range(losses.size):
+        if np.isnan(sigma.values[t]): continue
+
+
+        if a <= 0:
+            VaR[t] = np.inf
+        else:
+            VaR[t] = sigma.values[t] * norm.ppf(1 - a)
+        hit = 1 if losses.values[t] > VaR[t] else 0
+        aS[t] = a
+
+        a = a + gamma * ((1-alpha)-hit)
+        a = min(a, 0.5)
+
+    return pd.DataFrame({'VaR':VaR, 'a':aS}, index = losses.index)
