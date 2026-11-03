@@ -4,3 +4,5 @@ yfinance
 matplotlib
 scipy
 arch
+tabulate
+pytest

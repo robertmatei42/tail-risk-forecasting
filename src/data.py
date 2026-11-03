@@ -66,10 +66,3 @@ def check_prices(prices: pd.DataFrame) -> dict:
 
     return info_dict
 
-
-"""prices = clean_download("^GSPC", "2015-01-01")
-loss = compute_losses(prices)
-pv = parkinson_variance(prices)
-print(check_prices(prices))
-
-"""
