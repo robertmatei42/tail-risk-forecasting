@@ -70,3 +70,29 @@ def aci_ewma_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma:
         a = min(a, 0.5)
 
     return pd.DataFrame({'VaR':VaR, 'a':aS}, index = losses.index)
+
+
+def aci_fhs_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma: float = 0.005, window: int = 250):
+    """Adaptive conformal inference (ACI) Filtered Historical Simulation VaR. Returns a DataFrame with VaR"""
+
+    z = (losses / sigma).values
+    a = 1 - alpha
+    VaR = np.full(losses.size, np.nan)
+    aS = np.full(losses.size, np.nan)
+
+    for t in range(losses.size):
+        if t < window or np.isnan(sigma.values[t]): continue
+
+        past = z[t-window:t]
+
+        if a <= 0:
+            VaR[t] = np.inf
+        else:
+            VaR[t] = sigma.values[t] * np.nanquantile(past, 1-a)
+        hit = 1 if losses.values[t] > VaR[t] else 0
+        aS[t] = a
+
+        a = a + gamma * ((1-alpha)-hit)
+        a = min(a, 0.5)
+
+    return pd.DataFrame({'VaR':VaR, 'a':aS}, index = losses.index)
