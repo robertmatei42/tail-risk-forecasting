@@ -85,7 +85,22 @@ VaR and ES are then obtained by scaling the empirical quantile and tail mean of 
 ```math
 \text{ES}_{t+1}^{99\%} = \sigma_{t+1}\,\frac{\sum_{\tau=t-m+1}^{t} z_\tau\,\mathbf{1}\lbrace z_\tau \ge \hat{q}_{t+1}\rbrace}{\sum_{\tau=t-m+1}^{t} \mathbf{1}\lbrace z_\tau \ge \hat{q}_{t+1}\rbrace}
 ```
+### Adaptive Conformal Calibration (ACI)
+ 
+Adaptive conformal inference is used to dynamically adjust the coverage level after each day as:
 
+```math
+a_{t+1} = a_{t} + \gamma((1 - \alpha) - hit_{t}), \qquad a_1 = 1 - \alpha
+```
+
+where $hit_t = 1 \space\text{if}\space L_t > VaR_t \space\text{else}\space 0$ and $\gamma$ is the step size.  
+
+Thus, breaches make the VaR more conservative and calm periods relax it. In addition, values $a_t \le 0$ are allowed and result in an infinite VaR. Clipping them would break the long-run coverage guarantee. 
+
+#### VaR Calculation
+
+- ACI-EWMA: $VaR_t = \sigma_t \times \Phi^{-1}(1-a_t)$
+- ACI-FHS: $VaR_t = \sigma_t \times \text{Quantile}\left(\lbrace z_\tau \rbrace_{\tau=t-250}^{t-1}, \space 1-a_t\right)$
 ## Results
 
 ### Historical simulation (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
@@ -160,6 +175,52 @@ To check whether the FHS results depend on the chosen parameters, a sensitivity 
 
 The result depends mainly on the decay factor. With $\lambda$ = 0.94, the RiskMetrics standard for daily data, the volatility estimate reacts quickly enough to remove most of the clustering. As $\lambda$ increases, volatility adapts more slowly and the clustering returns. For example, at $\lambda$ = 0.99, FHS fails all three tests, much like historical simulation. A longer window mainly improves coverage, since the empirical quantile is estimated from more tail observations, but it does not fix the clustering. The fast reaction of the volatility estimate is therefore the key ingredient of the model.
 
+
+### Adaptive Conformal Calibration (ACI)
+
+**ACI with an EWMA (normal) base model** (2,672 days, 26.7 breaches expected)
+
+| γ | Violations | Rate | p (Kupiec) | p (independence) | p (cond. coverage) | Infinite-VaR days | Avg. VaR |
+|---|---|---|---|---|---|---|---|
+| 0.001 | 33 | 1.24% | 0.239 | 0.068 | 0.094 | 101 | 0.0266 |
+| 0.005 | 27 | 1.01% | 0.957 | 0.458 | 0.758 | 1,076 | 0.0244 |
+| 0.01 | 27 | 1.01% | 0.957 | 0.458 | 0.758 | 1,168 | 0.0234 |
+| 0.02 | 26 | 0.97% | 0.888 | 0.475 | 0.767 | 1,137 | 0.0233 |
+| 0.05 | 26 | 0.97% | 0.888 | 0.475 | 0.767 | 1,439 | 0.0229 |
+
+Adaptive conformal inference fixes the coverage derived through a simple EWMA. Violations drop from 59 to 26-27 and all tests are passed for a $\gamma \ge 0.005$. All is not well though, because the model does so by assigning infinite VaR to nearly half of the days in the sample, because the normal base model has tails that are too thin and the ACI has to constantly over-correct. 
+
+Even for $\gamma = 0.001$, where there are only a few infinite VaR forecasts, the model barely passes the tests. Thus, ACI does guarantee the coverage rate, but here only through infinite forecasts, which are generally unusable.
+
+**ACI with an FHS base model** (2,672 days, 26.7 breaches expected)
+
+| γ | Violations | Rate | p (Kupiec) | p (independence) | p (cond. coverage) | Infinite-VaR days | Avg. VaR |
+|---|---|---|---|---|---|---|---|
+| FHS (no ACI) | 35 | 1.31% | 0.124 | 0.086 | 0.070 | 0 | 0.0301 |
+| 0.001 | 31 | 1.16% | 0.417 | 0.374 | 0.484 | 0 | 0.0322 |
+| 0.005 | 27 | 1.01% | 0.957 | 0.277 | 0.553 | 91 | 0.0348 |
+| 0.01 | 27 | 1.01% | 0.957 | 0.277 | 0.553 | 515 | 0.0304 |
+| 0.02 | 27 | 1.01% | 0.957 | 0.458 | 0.758 | 674 | 0.0312 |
+| 0.05 | 27 | 1.01% | 0.957 | 0.458 | 0.758 | 1,403 | 0.0274 |
+
+*Average VaR excludes infinite-VaR days, so it is only comparable across rows with zero infinite days.*
+
+FHS was close to calibrated before, with only 35 breaches against 26.7 expected. Thus, the ACI needs to adjust coverage little in order to correct towards the expected number of breaches. 
+
+With $\gamma = 0.001$ the model passes all three tests with clear margins, with no infinite VaR days, at roughly 7% higher average VaR than FHS. These results make it the best usable model in the project until now. As $\gamma$ increases, the model achieves the expected number of breaches, but by increasingly refusing to forecast (assigning infinite VaR). 
+
+
+At the same $\gamma = 0.005$, ACI needs infinite VaR on 1,076 days with an EWMA model, but only 91 with FHS. As a result, the base model matters more than the calibration layer. Thus, ACI works best to tune an already well functioning forecasting model such as the FHS. 
+ 
+Finally, Note that $\gamma = 0.001$ was chosen after seeing these results. In practice, $\gamma$ should be chosen on an earlier sample.
+
+<p align="center">
+  <img src="results/aci_fhs_alpha_over_time.png" alt="ACI-FHS alpha over time" width="700">
+</p>
+
+*Miss level of the ACI for the Filtered Historical Simulation Method over time*
+
+The figure above shows the ACI-FHS miss level over time. $a_t$ remains close to the target level of 1% until 2019, then drops after breach clusters, most sharply in 2024-2025. At that time, ACI had to aim at a tail of around 0.5% to keep coverage at 1%. Simple FHS underestimated risk in that period. 
 ## References
 
 - Christoffersen, P. F. (1998). Evaluating interval forecasts. *International Economic Review*, 39(4), 841–862.
