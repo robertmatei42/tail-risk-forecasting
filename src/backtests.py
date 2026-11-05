@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import chi2
 from scipy.special import xlogy
+from scipy import stats
 from tabulate import tabulate
 
 def kupiec_test(hit: pd.Series, p: float = 0.01) -> dict:
@@ -89,3 +90,17 @@ def backtest_summary(hit: pd.Series, model: str, p:float = 0.01)-> pd.DataFrame:
     save_data['LR_cc'], save_data['p_cc'] = conditional_coverage(hit)['LR_conditional'], conditional_coverage(hit)['p_value']
 
     return pd.DataFrame(data = save_data, index=[model])
+
+def es_backtest_mf(losses: pd.Series, var: pd.Series, es: pd.Series, sigma: pd.Series) -> dict:
+    """Returns the McNeil-Frey exceedance residual test for ES. """
+
+    breach_days= (losses > var)
+    n_hits = int(breach_days.sum())
+
+    r = (losses[breach_days] - es[breach_days])/sigma[breach_days]
+    t = r.mean() / (r.std(ddof=1) / np.sqrt(n_hits))
+
+    return {'n_hits': n_hits,
+            'mean_resid': r.mean(),
+            't_stat': t,
+            'p_value': 1 - stats.t.cdf(t, df = n_hits-1)}
