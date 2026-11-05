@@ -101,6 +101,35 @@ Thus, breaches make the VaR more conservative and calm periods relax it. In addi
 
 - ACI-EWMA: $VaR_t = \sigma_t \times \Phi^{-1}(1-a_t)$
 - ACI-FHS: $VaR_t = \sigma_t \times \text{Quantile}\left(\lbrace z_\tau \rbrace_{\tau=t-250}^{t-1}, \space 1-a_t\right)$
+
+### McNeil-Frey Expected Shortfall Backtest
+
+VaR backtests only check how often losses exceed VaR, not how large those losses are. To test whether the models also capture the size of tail losses, I use the exceedance residual test of McNeil and Frey (2000).
+
+The test is relatively simple, and only needs the VaR, ES and volatility forecasts already computed above. On each breach day, the exceedance residual is computed:
+
+```math
+r_t = \frac{L_t - ES_t}{\sigma_t}
+```
+
+where $L_t$ is the loss on day $t$, $ES_t$ is the model's Expected Shortfall forecast, and $\sigma_t$ is the model's volatility forecast for that day: the EWMA volatility for EWMA and FHS, and a rolling 250-day standard deviation of past losses for HS. The residual is only computed on breach days, defined as days with $L_t > VaR_t$.
+
+If the ES is correctly estimated, there are no deviations from it on average, thus the mean of the exceedance residuals $r_t$ should be 0. A positive mean indicates that ES is underestimated, therefore a one-tailed t-test is used to verify discrepancies.
+
+```math
+\begin{align}
+  H_0: \mathbb{E}[r_t] = 0 \\
+  H_1: \mathbb{E}[r_t] > 0
+\end{align}
+```
+
+The test statistic is
+
+```math
+t = \frac{\bar{r}}{s_r / \sqrt{n}}
+```
+
+where $\bar{r}$ and $s_r$ are the mean and standard deviation of the residuals and $n$ is the number of breaches. Under $H_0$ it follows a t-distribution with $n - 1$ degrees of freedom.
 ## Results
 
 ### Historical simulation (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
@@ -220,11 +249,27 @@ Finally, Note that $\gamma = 0.001$ was chosen after seeing these results. In pr
 
 *Miss level of the ACI for the Filtered Historical Simulation Method over time*
 
-The figure above shows the ACI-FHS miss level over time. $a_t$ remains close to the target level of 1% until 2019, then drops after breach clusters, most sharply in 2024-2025. At that time, ACI had to aim at a tail of around 0.5% to keep coverage at 1%. Simple FHS underestimated risk in that period. 
+The figure above shows the ACI-FHS miss level over time. $a_t$ remains close to the target level of 1% until 2019, then drops after breach clusters, most sharply in 2024-2025. At that time, ACI had to aim at a tail of around 0.5% to keep coverage at 1%. Simple FHS underestimated risk in that period.
+
+### McNeil-Frey Expected Shortfall Backtest
+
+| Model | Breaches | Mean residual | t-statistic | p-value |
+|---|---|---|---|---|
+| HS | 43 | 0.594 | 2.69 | 0.005 |
+| EWMA | 59 | 0.861 | 5.63 | < 0.001 |
+| FHS | 35 | 0.158 | 0.74 | 0.232 |
+
+The table shows the results of the McNeil-Frey test for each of the three base models in this project. ACI only adjusts VaR, so it is not included in this test. EWMA fails clearly. On breach days, losses are on average 0.861 $\sigma$ larger than its ES. The normal distribution underestimates both how often and how badly losses exceed VaR. 
+
+HS also fails, with a p-value of less than 0.01. Its 250-day window adapts slowly, so after a volatility shock its ES stays too low and losses on breach days are much larger than predicted. Finally, FHS passes. The mean residual is small and not significant, so FHS captures both the frequency and the size of tail losses. It is the only one of the three models that passes both the VaR and the ES backtests.
+
+Importantly, HS residuals are scaled by a rolling standard deviation rather than EWMA volatility, so its mean residual is not on exactly the same scale as the other two. The pass or fail conclusions are still comparable.
 ## References
 
 - Christoffersen, P. F. (1998). Evaluating interval forecasts. *International Economic Review*, 39(4), 841–862.
 - Christoffersen, P. F. (2012). *Elements of Financial Risk Management* (2nd ed.). Academic Press.
+- Gibbs, I., & Candès, E. (2021). Adaptive conformal inference under distribution shift. *Advances in Neural Information Processing Systems*, 34.
 - Kupiec, P. H. (1995). Techniques for verifying the accuracy of risk measurement models. *Journal of Derivatives*, 3(2), 73–84.
+- McNeil, A. J., & Frey, R. (2000). Estimation of tail-related risk measures for heteroscedastic financial time series: an extreme value approach. *Journal of Empirical Finance*, 7(3-4), 271-300.
 - Parkinson, M. (1980). The extreme value method for estimating the variance of the rate of return. *Journal of Business*, 53(1), 61–65.
 
