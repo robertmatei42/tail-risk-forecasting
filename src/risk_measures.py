@@ -96,5 +96,3 @@ def aci_fhs_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma: 
         a = min(a, 0.5)
 
     return pd.DataFrame({'VaR':VaR, 'a':aS}, index = losses.index)
-
-

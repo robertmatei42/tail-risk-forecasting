@@ -149,4 +149,3 @@ def  e_process(e: pd.Series, lam: float = 0.02, alpha: float = 0.05) -> tuple[pd
 
     return wealth, reject_date
 
-
