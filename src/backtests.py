@@ -132,3 +132,11 @@ def es_backtest_mf_boot(losses: pd.Series, var: pd.Series, es: pd.Series, sigma:
             'mean_resid': r.mean(),
             't_stat': t_obs,
             'p_boot': p_boot}
+
+
+def e_values(losses: pd.Series, var: pd.Series, es: pd.Series,  p: float = 0.99) -> pd.Series:
+    """Daily e-values for a (VaR, ES) forecast. (Wang, Wang and Ziegel)."""
+
+    e = ((losses - var).clip(lower = 0)) / ((1 - p) * (es - var))
+
+    return e
