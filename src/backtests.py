@@ -104,3 +104,31 @@ def es_backtest_mf(losses: pd.Series, var: pd.Series, es: pd.Series, sigma: pd.S
             'mean_resid': r.mean(),
             't_stat': t,
             'p_value': 1 - stats.t.cdf(t, df = n_hits-1)}
+
+
+
+def es_backtest_mf_boot(losses: pd.Series, var: pd.Series, es: pd.Series, sigma: pd.Series, n_boot: int = 10000, seed: int = 42) -> dict:
+    """McNeil-Frey ES backtest with a bootstrap p-value."""
+
+    rng = np.random.default_rng(seed)
+    breach_days= (losses > var)  
+    r = ((losses[breach_days] - es[breach_days])/sigma[breach_days]).values
+    r0 = (r - r.mean())
+    n = len(r)
+
+
+    t_values = []
+    t_obs = r.mean() / (r.std(ddof=1) / np.sqrt(n))
+
+    for _ in range(n_boot):    
+
+        r_boot = rng.choice(r0, n, replace=True)
+        t = r_boot.mean() / (r_boot.std(ddof = 1)/np.sqrt(n))
+        t_values.append(t)
+
+    p_boot = np.mean(np.array(t_values) >= t_obs)
+
+    return {'n_hits': n,
+            'mean_resid': r.mean(),
+            't_stat': t_obs,
+            'p_boot': p_boot}

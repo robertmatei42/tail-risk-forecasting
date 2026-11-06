@@ -253,17 +253,20 @@ The figure above shows the ACI-FHS miss level over time. $a_t$ remains close to 
 
 ### McNeil-Frey Expected Shortfall Backtest
 
-| Model | Breaches | Mean residual | t-statistic | p-value |
-|---|---|---|---|---|
-| HS | 43 | 0.594 | 2.69 | 0.005 |
-| EWMA | 59 | 0.861 | 5.63 | < 0.001 |
-| FHS | 35 | 0.158 | 0.74 | 0.232 |
+| Model | Breaches | Mean residual | t-statistic | p-value (t-test) | p-value (bootstrap) |
+|---|---|---|---|---|---|
+| HS | 43 | 0.594 | 2.69 | 0.005 | 0.002 |
+| EWMA | 59 | 0.861 | 5.63 | < 0.001 | < 0.0001 |
+| FHS | 35 | 0.158 | 0.74 | 0.232 | 0.212 |
 
 The table shows the results of the McNeil-Frey test for each of the three base models in this project. ACI only adjusts VaR, so it is not included in this test. EWMA fails clearly. On breach days, losses are on average 0.861 $\sigma$ larger than its ES. The normal distribution underestimates both how often and how badly losses exceed VaR. 
 
 HS also fails, with a p-value of less than 0.01. Its 250-day window adapts slowly, so after a volatility shock its ES stays too low and losses on breach days are much larger than predicted. Finally, FHS passes. The mean residual is small and not significant, so FHS captures both the frequency and the size of tail losses. It is the only one of the three models that passes both the VaR and the ES backtests.
 
 Importantly, HS residuals are scaled by a rolling standard deviation rather than EWMA volatility, so its mean residual is not on exactly the same scale as the other two. The pass or fail conclusions are still comparable.
+
+As a robustness check, the p-values are also computed with a bootstrap, following McNeil and Frey (2000). The residuals are de-meaned to impose $H_0$ and resampled with replacement 10,000 times. The p-value then represents the share of bootstrap t-statistics at least as large as the observed one. The bootstrap p-values are close to the t-test values and lead to the same conclusions: HS and EWMA fail, and only FHS passes.
+
 ## References
 
 - Christoffersen, P. F. (1998). Evaluating interval forecasts. *International Economic Review*, 39(4), 841–862.

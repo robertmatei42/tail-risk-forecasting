@@ -35,7 +35,7 @@ def ewma_var_es(sigma: pd.Series, alpha: float = 0.99) -> pd.DataFrame:
 
     return pd.DataFrame({'VaR' : VaR, 'ES' : ES}, index = sigma.index)
 
-def fhs_var_es(losses: pd.Series, sigma: pd.Series, window: int = 250, alpha:float = 0.99): 
+def fhs_var_es(losses: pd.Series, sigma: pd.Series, window: int = 250, alpha:float = 0.99) -> pd.DataFrame: 
     """Returns the Filtered Historical Simulation VaR and ES forecasts for the next day. Takes the loss Series as primary argument. 
     Returns a `pd.DataFrame` containing both measures."""
 
@@ -48,7 +48,7 @@ def fhs_var_es(losses: pd.Series, sigma: pd.Series, window: int = 250, alpha:flo
 
     return pd.DataFrame({'VaR': VaR, 'ES': ES})
 
-def aci_ewma_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma: float = 0.005):
+def aci_ewma_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma: float = 0.005) -> pd.DataFrame:
     """Adaptive conformal inference (ACI) VaR: EWMA VaR whose miss level a is updated after each day’s hit. Returns a DataFrame with VaR and a"""
 
     a = 1 - alpha
@@ -72,7 +72,7 @@ def aci_ewma_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma:
     return pd.DataFrame({'VaR':VaR, 'a':aS}, index = losses.index)
 
 
-def aci_fhs_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma: float = 0.005, window: int = 250):
+def aci_fhs_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma: float = 0.005, window: int = 250) -> pd.DataFrame:
     """Adaptive conformal inference (ACI) Filtered Historical Simulation VaR. Returns a DataFrame with VaR"""
 
     z = (losses / sigma).values
@@ -96,3 +96,5 @@ def aci_fhs_var(losses: pd.Series, sigma: pd.Series, alpha:float = 0.99, gamma: 
         a = min(a, 0.5)
 
     return pd.DataFrame({'VaR':VaR, 'a':aS}, index = losses.index)
+
+
