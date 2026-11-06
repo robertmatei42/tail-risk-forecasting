@@ -130,6 +130,25 @@ t = \frac{\bar{r}}{s_r / \sqrt{n}}
 ```
 
 where $\bar{r}$ and $s_r$ are the mean and standard deviation of the residuals and $n$ is the number of breaches. Under $H_0$ it follows a t-distribution with $n - 1$ degrees of freedom.
+
+### E-Backtesting
+
+McNeil-Frey only gives one p-value for an entire sample. This is often not desirable, as a failing model must be detected as soon as possible. An e-backtest, following Wang, Wang and Ziegel (2025), builds evidence day-by-day and can reject a model at any point in time, which is what a risk manager who monitors a model live needs.
+
+E-backtesting is similar to betting a portion of our wealth against our model each day. The payoff of this bet is the e-value:
+
+$$e_t = \frac{(L_t - \mathrm{VaR}_t)^+}{(1-p)\,(\mathrm{ES}_t - \mathrm{VaR}_t)}$$
+
+where $L_t$ is the loss on day $t$, $\mathrm{VaR}_t$ and $\mathrm{ES}_t$ are the model's forecasts, $p = 0.99$ is the confidence level, and $(x)^+ = \max(x, 0)$. If VaR and ES are correct, the expected value of $e_t$ is at most 1, so the bet cannot win on average. If the model underestimates the tail, the bet wins and our wealth grows.
+
+The wealth process of this betting strategy is:
+
+$$M_t = M_{t-1}\,\big(1 - \lambda + \lambda\, e_t\big), \qquad M_0 = 1$$
+
+where $\lambda$ is the portion of wealth bet each day, with rejection at the first $t$ where $M_t \geq 1/\alpha$. With $\alpha = 0.05$, the threshold is 20.
+
+By Ville's inequality, this keeps the false-rejection probability at or below $\alpha$, even though the wealth is checked every day.
+
 ## Results
 
 ### Historical simulation (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
@@ -275,4 +294,4 @@ As a robustness check, the p-values are also computed with a bootstrap, followin
 - Kupiec, P. H. (1995). Techniques for verifying the accuracy of risk measurement models. *Journal of Derivatives*, 3(2), 73–84.
 - McNeil, A. J., & Frey, R. (2000). Estimation of tail-related risk measures for heteroscedastic financial time series: an extreme value approach. *Journal of Empirical Finance*, 7(3-4), 271-300.
 - Parkinson, M. (1980). The extreme value method for estimating the variance of the rate of return. *Journal of Business*, 53(1), 61–65.
-
+- Wang, Q., Wang, R., & Ziegel, J. (2025). E-backtesting. *Management Science*. https://arxiv.org/abs/2209.00991
