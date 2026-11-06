@@ -140,3 +140,13 @@ def e_values(losses: pd.Series, var: pd.Series, es: pd.Series,  p: float = 0.99)
     e = ((losses - var).clip(lower = 0)) / ((1 - p) * (es - var))
 
     return e
+
+def  e_process(e: pd.Series, lam: float = 0.02, alpha: float = 0.05) -> tuple[pd.Series, pd.Timestamp | None]:
+    """Running e-backtest wealth with a fixed betting fraction lam."""
+
+    wealth = (1 - lam + lam * e).cumprod()
+    reject_date = wealth[wealth >= 1 / alpha].index[0] if len(wealth[wealth >= 1 / alpha]) > 0 else None
+
+    return wealth, reject_date
+
+
