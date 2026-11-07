@@ -149,6 +149,17 @@ where $\lambda$ is the portion of wealth bet each day, with rejection at the fir
 
 By Ville's inequality, this keeps the false-rejection probability at or below $\alpha$, even though the wealth is checked every day.
 
+
+#### Adaptive $\lambda$
+
+A fixed $\lambda$ is an arbitrary choice, and has a strong influence on results. Thus, following Wang, Wang and Ziegel (2025), an additional method is introduced. Here, $\lambda$ is chosen each day as the value that would have maximised the wealth growth on past e-values.
+
+```math
+\lambda_t =  \argmax_{\lambda\in[0,0.5]}\sum_{s<t}\log(1-
+\lambda+\lambda e_s)
+```
+
+Importantly, since $\lambda_t$ uses only the past, the false-rejection guarantee is kept.D
 ## Results
 
 ### Historical simulation (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
@@ -285,6 +296,42 @@ HS also fails, with a p-value of less than 0.01. Its 250-day window adapts slowl
 Importantly, HS residuals are scaled by a rolling standard deviation rather than EWMA volatility, so its mean residual is not on exactly the same scale as the other two. The pass or fail conclusions are still comparable.
 
 As a robustness check, the p-values are also computed with a bootstrap, following McNeil and Frey (2000). The residuals are de-meaned to impose $H_0$ and resampled with replacement 10,000 times. The p-value then represents the share of bootstrap t-statistics at least as large as the observed one. The bootstrap p-values are close to the t-test values and lead to the same conclusions: HS and EWMA fail, and only FHS passes.
+
+### E-backtesting
+
+| Model | Rejected on (adaptive λ) | Peak wealth |
+|---|---|---|
+| EWMA | 10 Aug 2017 | > 10^20 |
+| HS | 9 Mar 2020 | > 10^6 |
+| FHS (250-day) | 3 Apr 2025 | 32 |
+| FHS (500-day)* | never | 1.0 |
+
+*Evaluated from 2017, the first date with 500 days of history.
+
+
+<p align="center">
+  <img src="results/e_backtest_wealth_adaptive.png" alt="ACI-FHS alpha over time" width="700">
+</p>
+
+*E-backtest wealth with adaptive λ. Crosses mark rejection dates.*
+
+The table and figure above show the e-backtest of the three base methods in this project. First, EWMA is rejected within about 1.5 years of the start of the backtest. Its normal tails are detectably wrong almost immediately. Second, HS passes for approximately 4 years, until the COVID-19 crash. Its slow 250-day window is again the main cause.
+
+Third, the FHS based on a sample of 250 days is borderline, as can be seen more clearly in the figure. It crosses just above 20 in April 2025 on the full sample, but not when starting in 2017. Its weak point is the ES: with a 250-day window, the 99% ES rests on only 2–3 observations, so the ES–VaR gap is sometimes too small (mean e-value 2.13, against 1 for a correct model).
+
+The FHS-500 never crosses the threshold, and its wealth never rises above its starting value (mean e-value 1.34). A longer window thus stabilises the ES and is better suited to estimating ES at the 99% level.
+
+Therefore, the e-backtest agrees with Kupiec, Christoffersen and McNeil-Frey on EWMA and HS, but adds something they missed. McNeil-Frey passed FHS with a 250-day window, while the e-backtest shows that its ES is unstable on a few shock days. It also shows when a model fails, not only whether it does.
+
+#### Robustness: Fixed $\lambda$
+
+| λ | EWMA | HS | FHS (250-day) |
+|---|---|---|---|
+| 0.01 | 9 Sep 2016 | 9 Mar 2020 | 3 Apr 2025 |
+| 0.02 | 9 Sep 2016 | 12 Mar 2020 | never |
+| 0.05 | 8 Feb 2018 | never | never |
+
+The table above shows the same e-backtest with fixed $\lambda$ for robustness. As expected, the results depend on this parameter, which is the reason for choosing $\lambda$ adaptively. EWMA is rejected for every $\lambda$, and HS and FHS are only ever rejected on major shock dates (COVID-19 and the April 2025 sell-off). Since several models, windows and start dates were tested, the single borderline rejection of FHS with a 250-day window should not be over-interpreted
 
 ## References
 
