@@ -149,3 +149,25 @@ def  e_process(e: pd.Series, lam: float = 0.02, alpha: float = 0.05) -> tuple[pd
 
     return wealth, reject_date
 
+
+def e_process_adaptive(e: pd.Series, alpha: float = 0.05, lam_max: float = 0.5) -> tuple[pd.Series, pd.Timestamp, pd.Series]:
+    """Running e-backtest wealth with an adaptive betting fraction lam_t."""
+
+    lam_t = np.full_like(e.values, np.nan)
+    lam_t[0] = 0
+
+    lams = np.linspace(0, lam_max, 501)
+    log_growth = np.log(1 - lams[:, None] + lams[:, None] * e.values[None, :])
+
+    cum = log_growth.cumsum(axis=1)
+
+    for t in range (1, len(lam_t)):
+        lam_t[t] = lams[np.argmax(cum[:, t-1])]
+
+    wealth = np.cumprod(1 - lam_t + lam_t * e.values)
+    wealth = pd.Series(wealth, index = e.index)
+    reject_date = wealth[wealth >= 1 / alpha].index[0] if len(wealth[wealth >= 1 / alpha]) > 0 else None
+
+    lam_t = pd.Series(lam_t, index=e.index)
+
+    return wealth, reject_date, lam_t
