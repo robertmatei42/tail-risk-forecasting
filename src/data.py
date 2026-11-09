@@ -66,3 +66,11 @@ def check_prices(prices: pd.DataFrame) -> dict:
 
     return info_dict
 
+def load_prices(ticker: str) -> pd.DataFrame:
+    """Read the OHLC data of a given instrument from the data folder."""
+
+    name = re.sub(r"[^A-Za-z0-9]", "", ticker)
+
+    df = pd.read_csv(DATA_DIR / f"{name}.csv", index_col="Date", parse_dates=True)
+    return df
+
