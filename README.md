@@ -54,7 +54,6 @@ Before any modelling, each price series is passed through `check_prices`, which 
   <img src="results/losses.png" alt="Daily Loss Over Time" width="700">
 </p>
 
-
 The figure shows the daily losses over the sample. Large losses cluster in time, most clearly around the COVID-19 crash in March 2020 and the sell-off in April 2025. Calm periods alternate with stressed ones, which is the behaviour a good VaR model must capture.
 
 ## Method
@@ -385,6 +384,14 @@ Therefore, the e-backtest agrees with Kupiec, Christoffersen and McNeil-Frey on 
 | 0.05 | 8 Feb 2018 | never | never |
 
 The table above shows the same e-backtest with fixed $\lambda$ for robustness. As expected, the results depend on this parameter, which is the reason for choosing $\lambda$ adaptively. EWMA is rejected for every $\lambda$, and HS and FHS are only ever rejected on major shock dates (COVID-19 and the April 2025 sell-off). Since several models, windows and start dates were tested, the single borderline rejection of FHS with a 250-day window should not be over-interpreted.
+
+
+## Repository structure
+
+- `src/`: data loading, risk models (`risk_measures.py`), backtests (`backtests.py`), shared setup (`pipeline.py`)
+- `notebooks/`: run in order, 01 data, 02 VaR models, 03 ACI, 04 McNeil-Frey, 05 e-backtesting
+- `results/`: figures used in this README
+- `data/`: S&P 500 prices, Jan 2015 - Sep 2026
 
 ## References
 
