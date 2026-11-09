@@ -102,6 +102,10 @@ Thus, breaches make the VaR more conservative and calm periods relax it. In addi
 - ACI-EWMA: $VaR_t = \sigma_t \times \Phi^{-1}(1-a_t)$
 - ACI-FHS: $VaR_t = \sigma_t \times \text{Quantile}\left(\lbrace z_\tau \rbrace_{\tau=t-250}^{t-1}, \space 1-a_t\right)$
 
+#### Out-of-sample choice of $\gamma$
+
+To test whether the ACI results depend on choosing $\gamma$ after seeing the backtest, an additional robustness check is conducted in which the rule for choosing this parameter is fixed in advance. More explicitly, the sample is split in half on the 7 June 2021, and $\gamma$ is chosen on the first half as the value that produces no infinite-VaR days and a breach rate closest to 1%. This choice is then evaluated on the second half of the sample only. Because ACI updates on a daily basis using only past data, its forecasts in the first half do not depend on the second half.
+
 ### McNeil-Frey Expected Shortfall Backtest
 
 VaR backtests only check how often losses exceed VaR, not how large those losses are. To test whether the models also capture the size of tail losses, I use the exceedance residual test of McNeil and Frey (2000).
@@ -266,13 +270,11 @@ Even for $\gamma = 0.001$, where there are only a few infinite VaR forecasts, th
 
 FHS was close to calibrated before, with only 35 breaches against 26.7 expected. Thus, the ACI needs to adjust coverage little in order to correct towards the expected number of breaches. 
 
-With $\gamma = 0.001$ the model passes all three tests with clear margins, with no infinite VaR days, at roughly 7% higher average VaR than FHS. These results make it the best usable model in the project until now. As $\gamma$ increases, the model achieves the expected number of breaches, but by increasingly refusing to forecast (assigning infinite VaR). 
+With $\gamma = 0.001$ the model passes all three tests with clear margins, with no infinite VaR days, at roughly 7% higher average VaR than FHS. These results make it the best usable model in the project until now. As $\gamma$ increases, the model achieves the expected number of breaches, but by increasingly refusing to forecast (assigning infinite VaR). It is important to note that $\gamma = 0.001$ was selected after seeing these full-sample results. The out-of-sample check below chooses γ in advance instead.
 
 
 At the same $\gamma = 0.005$, ACI needs infinite VaR on 1,076 days with an EWMA model, but only 91 with FHS. As a result, the base model matters more than the calibration layer. Thus, ACI works best to tune an already well functioning forecasting model such as the FHS. 
  
-Finally, Note that $\gamma = 0.001$ was chosen after seeing these results. In practice, $\gamma$ should be chosen on an earlier sample.
-
 <p align="center">
   <img src="results/aci_fhs_alpha_over_time.png" alt="ACI-FHS alpha over time" width="700">
 </p>
@@ -280,6 +282,22 @@ Finally, Note that $\gamma = 0.001$ was chosen after seeing these results. In pr
 *Miss level of the ACI for the Filtered Historical Simulation Method over time*
 
 The figure above shows the ACI-FHS miss level over time. $a_t$ remains close to the target level of 1% until 2019, then drops after breach clusters, most sharply in 2024-2025. At that time, ACI had to aim at a tail of around 0.5% to keep coverage at 1%. Simple FHS underestimated risk in that period.
+
+#### Robustness: Out-of-sample choice of $\gamma$
+
+| Model (test half, 7 Jun 2021 onwards) | Breaches | Expected | p (Kupiec) | p (independence) | p (cond. coverage) | Infinite-VaR days |
+|---|---|---|---|---|---|---|
+| FHS | 18 | 13.4 | 0.226 | 0.240 | 0.240 | 0 |
+| ACI, γ = 0.005 (chosen) | 13 | 13.4 | 0.921 | 0.613 | 0.876 | 91 |
+| ACI, γ = 0.001 (for comparison only) | 16 | 13.4 | 0.481 | 0.533 | 0.643 | 0 |
+
+*Out-of-sample backtest of the chosen γ (7 Jun 2021 onwards)*
+
+The rule imposed in the method selects a $\gamma = 0.005$ and the model based on this choice provides a near-perfect coverage. This model is not perfect though, as it needs infinite VaR on 91 of 1,336 days (6.8%), all in 2024–25, the same period where the ACI plot and the e-backtest showed FHS underestimating the tail. 
+
+In contrast, FHS passes out-of-sample without any infinite-VaR days. Thus,  ACI improves calibration, but at a practical cost that depends on how volatile the period is. 
+
+Lastly, the $\gamma = 0.001$ used earlier is shown for comparison only. Switching to it now would again mean choosing after seeing the results.
 
 ### McNeil-Frey Expected Shortfall Backtest
 
