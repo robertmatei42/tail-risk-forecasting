@@ -1,12 +1,48 @@
 # Tail-Risk Forecasting
 
-## Status
-Work in progress. Done: data pipeline and checks, volatility proxies, historical-simulation VaR/ES with Kupiec backtest.
-Next: Christoffersen independence test, GARCH and HAR-based VaR, conformal calibration and e-backtesting.
+## Summary
 
-## Goal
+### Research Question
 
-Forecast 1-day Value-at-Risk (VaR) and Expected Shortfall (ES) for an equity index, calibrate them with conformal methods, and evaluate them with e-backtests.
+*Which VaR and ES models are adequate for daily 99% risk on the S&P 500, can calibration fix the ones that aren’t, and how quickly can modern backtests detect a failing model?*
+
+### Summary Results
+
+| Model | Kupiec | Independence | Cond. coverage | ES (McNeil-Frey) | E-backtest (adaptive λ) |
+|---|---|---|---|---|---|
+| HS | Fail (0.004) | Fail (0.0005) | Fail (< 0.001) | Fail (0.005) | Rejected 9 Mar 2020 |
+| EWMA | Fail (< 0.001) | Pass (0.191) | Fail (< 0.001) | Fail (< 0.001) | Rejected 10 Aug 2017 |
+| FHS, 250-day | Pass (0.124) | Pass (0.086) | Pass (0.070) | Pass (0.232) | Rejected 3 Apr 2025*** |
+| FHS, 500-day* | Pass (0.344) | Fail (0.049) | Pass (0.091) | Pass (0.710) | Never rejected |
+| ACI-FHS, γ = 0.005** | Pass (0.921) | Pass (0.613) | Pass (0.876) | n/a | n/a |
+
+\*2,422-day sample from 2017.\
+\*\*Out-of-sample test half (from 7 Jun 2021), with infinite VaR on 91 of 1,336 days. ACI only adjusts the VaR level and gives no ES forecast, so the ES tests do not apply.\
+\*\*\*Not rejected on the 2,422-day sample from 2017 (peak wealth 6.55).
+
+### Answer
+
+**Which models are adequate?** 
+
+Only FHS holds up. HS and EWMA fail both the VaR and the ES tests. FHS with a 250-day window passes all four classic tests. A 500-day window gives a slightly conservative ES and is never rejected by the e-backtest, but its breaches are slightly clustered (independence p = 0.049).
+
+**Can calibration fix them?**
+
+Partly. ACI brings the breach rate close to 1% and passes all three VaR tests on the test half. The cost is an infinite VaR on 91 days, all in 2024-2025. It fixes the breach count, but not always with a usable risk number.
+
+**How quickly can a failing model be detected?**
+
+There is no true starting point, since we never know exactly when a model starts to fail. Speed can therefore only be judged against the shock that breaks it. EWMA is wrong from the start, because its normal tails never fit, and the e-backtest rejects it in August 2017. HS only breaks in a crash, and it is rejected on 9 March 2020, within weeks of the COVID sell-off. 
+
+Importantly, the classic tests only give a verdict at the end of the sample. The e-backtest can stop as soon as the evidence is strong enough, and that result stays valid. It also rejects FHS-250 in April 2025, so even the best model shows weakness in its ES after a large shock.
+
+### Limitations
+
+- This project analyses only one index and one coverage level. 
+- The $\lambda$ chosen for the EWMA approach is 0.94, the one recommended in the RiskMetrics model. This choice may have an effect on results as it is not estimated from the data. 
+- ACI gives an infinite VaR on 91 of 1,336 days. This keeps the coverage level, but an infinite VaR is unrealistic in practice.
+- McNeil-Frey only uses breach days, running on 29-59 observations. With so few observations, the test has low power, so a weak ES model can still pass. The bootstrap helps, but it doesn’t add any new data. The e-backtest uses every day, not only breach days.
+
 
 ## Data
 
@@ -20,7 +56,7 @@ $$\hat\sigma^2_t = \frac{1}{4\ln 2}\left(\ln\frac{H_t}{L_t}\right)^2$$
 
 where $H_t$ and $L_t$ are the daily high and low.
 
-The figure compares 21-day rolling annualised volatility from both measures. They follow the same regimes, but Parkinson is consistently lower, because the high–low range only covers trading hours and misses the overnight gap between the previous close and the open. This gap is largest in crises: in March 2020, close-to-close volatility reached about 95%, against roughly 53% for Parkinson. Extending the proxy with estimators that include the overnight return (Garman–Klass, Yang–Zhang) is a next step.
+The figure compares 21-day rolling annualised volatility from both measures. They follow the same regimes, but Parkinson is consistently lower, because the high-low range only covers trading hours and misses the overnight gap between the previous close and the open. This gap is largest in crises: in March 2020, close-to-close volatility reached about 95%, against roughly 53% for Parkinson. Extending the proxy with estimators that include the overnight return (Garman-Klass, Yang-Zhang) is a next step.
 
 <p align="center">
   <img src="results/losses_and_vol.png" alt="Close-to-close vs Parkinson volatility" width="700">
@@ -28,9 +64,9 @@ The figure compares 21-day rolling annualised volatility from both measures. The
 
 ## Method
 
-### Baseline : Historical Simulation 
+### Baseline: Historical Simulation 
 
-As a baseline, the next day 99% VaR and ES metrics are forecast using historical simulation.
+As a baseline, the next-day 99% VaR and ES metrics are forecast using historical simulation.
 
 Let $L_t = -\ln(P_t / P_{t-1})$ be the daily loss and $m = 250$ the window length. The one-day-ahead forecasts are
 
@@ -42,17 +78,17 @@ Let $L_t = -\ln(P_t / P_{t-1})$ be the daily loss and $m = 250$ the window lengt
 \text{ES}_{t+1}^{99\%} = \frac{\sum_{\tau=t-m+1}^{t} L_\tau \, \mathbf{1}\lbrace L_\tau \ge \text{VaR}_{t+1}^{99\%} \rbrace}{\sum_{\tau=t-m+1}^{t} \mathbf{1}\lbrace L_\tau \ge \text{VaR}_{t+1}^{99\%} \rbrace}
 ```
 
-where $L_\tau$ is the daily loss, $m = 250$ the window length, and $\mathbf{1}\{\cdot\}$ the indicator function
+where $\mathbf{1}\{\cdot\}$ is the indicator function.
 
 ### Exponentially Weighted Moving Average (RiskMetrics)
 
 To capture volatility clustering, I add the RiskMetrics model. One-day-ahead variance forecasts are updated as
 
 ```math
-\sigma_{t+1}^2 = \lambda\,\sigma_t^2 + (1-\lambda)\,L_t^2, \qquad \lambda = 0.94,
+\sigma_{t+1}^2 = \lambda\,\sigma_t^2 + (1-\lambda)\,L_t^2, \qquad \lambda = 0.94
 ```
 
-, initialised with the sample variance of the first 30 losses. Assuming normally distributed losses, VaR and ES follow from the inverse of the standard normal CDF (`norm.ppf`) and the standard normal density (`norm.pdf`):
+The variance is initialised with the sample variance of the first 30 losses. Assuming normally distributed losses, VaR and ES follow from the inverse of the standard normal CDF (`norm.ppf`) and the standard normal density (`norm.pdf`):
 
 ```math
 \text{VaR}_{t+1}^{99\%} = \sigma_{t+1}\,\Phi^{-1}_{0.99}
@@ -85,15 +121,16 @@ VaR and ES are then obtained by scaling the empirical quantile and tail mean of 
 ```math
 \text{ES}_{t+1}^{99\%} = \sigma_{t+1}\,\frac{\sum_{\tau=t-m+1}^{t} z_\tau\,\mathbf{1}\lbrace z_\tau \ge \hat{q}_{t+1}\rbrace}{\sum_{\tau=t-m+1}^{t} \mathbf{1}\lbrace z_\tau \ge \hat{q}_{t+1}\rbrace}
 ```
+
 ### Adaptive Conformal Calibration (ACI)
  
 Adaptive conformal inference is used to dynamically adjust the coverage level after each day as:
 
 ```math
-a_{t+1} = a_{t} + \gamma((1 - \alpha) - hit_{t}), \qquad a_1 = 1 - \alpha
+a_{t+1} = a_{t} + \gamma((1 - p) - hit_{t}), \qquad a_1 = 1 - p
 ```
 
-where $hit_t = 1 \space\text{if}\space L_t > VaR_t \space\text{else}\space 0$ and $\gamma$ is the step size.  
+where $hit_t = 1 \space\text{if}\space L_t > VaR_t \space\text{else}\space 0$, $\gamma$ is the step size, and $p = 0.99$ is the confidence level.  
 
 Thus, breaches make the VaR more conservative and calm periods relax it. In addition, values $a_t \le 0$ are allowed and result in an infinite VaR. Clipping them would break the long-run coverage guarantee. 
 
@@ -104,7 +141,7 @@ Thus, breaches make the VaR more conservative and calm periods relax it. In addi
 
 #### Out-of-sample choice of $\gamma$
 
-To test whether the ACI results depend on choosing $\gamma$ after seeing the backtest, an additional robustness check is conducted in which the rule for choosing this parameter is fixed in advance. More explicitly, the sample is split in half on the 7 June 2021, and $\gamma$ is chosen on the first half as the value that produces no infinite-VaR days and a breach rate closest to 1%. This choice is then evaluated on the second half of the sample only. Because ACI updates on a daily basis using only past data, its forecasts in the first half do not depend on the second half.
+To test whether the ACI results depend on choosing $\gamma$ after seeing the backtest, an additional robustness check is conducted in which the rule for choosing this parameter is fixed in advance. More explicitly, the sample is split in half on 7 June 2021, and $\gamma$ is chosen on the first half as the value that produces no infinite-VaR days and a breach rate closest to 1%. This choice is then evaluated on the second half of the sample only. Because ACI updates on a daily basis using only past data, its forecasts in the first half do not depend on the second half.
 
 ### McNeil-Frey Expected Shortfall Backtest
 
@@ -149,7 +186,7 @@ The wealth process of this betting strategy is:
 
 $$M_t = M_{t-1}\,\big(1 - \lambda + \lambda\, e_t\big), \qquad M_0 = 1$$
 
-where $\lambda$ is the portion of wealth bet each day, with rejection at the first $t$ where $M_t \geq 1/\alpha$. With $\alpha = 0.05$, the threshold is 20.
+where $\lambda$ is the portion of wealth bet each day (not to be confused with the EWMA decay factor), with rejection at the first $t$ where $M_t \geq 1/\alpha$. With $\alpha = 0.05$, the threshold is 20.
 
 By Ville's inequality, this keeps the false-rejection probability at or below $\alpha$, even though the wealth is checked every day.
 
@@ -159,14 +196,15 @@ By Ville's inequality, this keeps the false-rejection probability at or below $\
 A fixed $\lambda$ is an arbitrary choice, and has a strong influence on results. Thus, following Wang, Wang and Ziegel (2025), an additional method is introduced. Here, $\lambda$ is chosen each day as the value that would have maximised the wealth growth on past e-values.
 
 ```math
-\lambda_t =  \argmax_{\lambda\in[0,0.5]}\sum_{s<t}\log(1-
+\lambda_t =  \arg\max_{\lambda\in[0,0.5]}\sum_{s<t}\log(1-
 \lambda+\lambda e_s)
 ```
 
-Importantly, since $\lambda_t$ uses only the past, the false-rejection guarantee is kept.D
+Importantly, since $\lambda_t$ uses only the past, the false-rejection guarantee is kept.
+
 ## Results
 
-### Historical simulation (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
+### Historical simulation (S&P 500, Dec 2015 - Sep 2026, 2,702 days)
 
 <p align="center">
   <img src="results/hs_var.png" alt="Historical-simulation VaR vs daily loss with violations" width="700">
@@ -186,10 +224,10 @@ Importantly, since $\lambda_t$ uses only the past, the false-rejection guarantee
 As expected, historical simulation fails the unconditional coverage, independence and conditional coverage tests. Extreme losses occur more often than the VaR model predicts, and they cluster over time: the probability of a violation is 1.4% after a day without one, but 11.6% after a day with one, about eight times higher. The 250-day window makes the model slow to react to volatility shocks. VaR is too low in the first days of a crisis, and then stays elevated for a full year until the shock leaves the window, overstating risk, where opportunity costs come into play. This motivates conditional volatility models such as GARCH, which update the volatility forecast every day using the latest returns.
 
 
-### Exponentially Weighted Moving Average (S&P 500, Dec 2015 – Sep 2026, 2,702 days)
+### Exponentially Weighted Moving Average (S&P 500, Dec 2015 - Sep 2026, 2,702 days)
 
 <p align="center">
-  <img src="results/ewma_var.png" alt="Historical-simulation VaR vs daily loss with violations" width="700">
+  <img src="results/ewma_var.png" alt="EWMA VaR vs daily loss with violations" width="700">
 </p>
 
 *Daily losses (grey), the 99% EWMA VaR forecast (teal), and the days on which the loss exceeded VaR (dots).*
@@ -204,7 +242,7 @@ As expected, historical simulation fails the unconditional coverage, independenc
 Both models are evaluated on the same sample of 2,702 days. As expected, since EWMA is a special case of GARCH(1,1), the model captures volatility clustering: VaR rises immediately after a shock, and the independence test is no longer rejected. On the other hand, EWMA breaches its VaR far more often than expected, on 2.18% of days instead of 1%. This is due to the fatter tails of equity losses, which make the 99% quantile of the normal distribution (about 2.33 standard deviations) too low for a reliable forecast. Therefore, EWMA fixes when VaR reacts, but not how far into the tail it reaches. This motivates filtered historical simulation, which keeps the EWMA volatility but replaces the normal quantile with the empirical quantile of standardised losses.
 
 
-### Model comparison: HS, EWMA and FHS (Feb 2016 – Sep 2026, 2,672 days)
+### Model comparison: HS, EWMA and FHS (Feb 2016 - Sep 2026, 2,672 days)
 
 All three models are evaluated on the same sample of 2,672 days, starting once every model has a full estimation window. The historical-simulation figures therefore differ slightly from the section above.
 
@@ -225,7 +263,7 @@ As expected, historical simulation fails all three tests: it reacts too slowly t
 
 ### Robustness: RiskMetrics decay factor and window length
 
-To check whether the FHS results depend on the chosen parameters, a sensitivity analysis is estimated using $\lambda\in \{0.94, 0.97, 0.99\}$ and estimation windows of 250 and 500 days. 
+To check whether the FHS results depend on the chosen parameters, a sensitivity analysis is estimated using $\lambda\in \{0.94, 0.97, 0.99\}$ and estimation windows of 250 and 500 days. All settings are evaluated on the same 2,422-day sample from 2017, so that the 500-day window has a full history. The 0.94, 250 row therefore differs slightly from the 35 breaches in the model comparison above.
 
 | $\lambda$, window | Violations (exp. 24.2) | p (Kupiec) | p (independence) | p (cond. coverage) |
 |---|---|---|---|---|
@@ -251,7 +289,7 @@ The result depends mainly on the decay factor. With $\lambda$ = 0.94, the RiskMe
 | 0.02 | 26 | 0.97% | 0.888 | 0.475 | 0.767 | 1,137 | 0.0233 |
 | 0.05 | 26 | 0.97% | 0.888 | 0.475 | 0.767 | 1,439 | 0.0229 |
 
-Adaptive conformal inference fixes the coverage derived through a simple EWMA. Violations drop from 59 to 26-27 and all tests are passed for a $\gamma \ge 0.005$. All is not well though, because the model does so by assigning infinite VaR to nearly half of the days in the sample, because the normal base model has tails that are too thin and the ACI has to constantly over-correct. 
+Adaptive conformal inference fixes the coverage derived through a simple EWMA. Violations drop from 59 to 26-27 and all tests are passed for a $\gamma \ge 0.005$. All is not well though, since the model does so by assigning infinite VaR to nearly half of the days in the sample. This happens because the normal base model has tails that are too thin, so ACI has to constantly over-correct.
 
 Even for $\gamma = 0.001$, where there are only a few infinite VaR forecasts, the model barely passes the tests. Thus, ACI does guarantee the coverage rate, but here only through infinite forecasts, which are generally unusable.
 
@@ -293,9 +331,9 @@ The figure above shows the ACI-FHS miss level over time. $a_t$ remains close to 
 
 *Out-of-sample backtest of the chosen γ (7 Jun 2021 onwards)*
 
-The rule imposed in the method selects a $\gamma = 0.005$ and the model based on this choice provides a near-perfect coverage. This model is not perfect though, as it needs infinite VaR on 91 of 1,336 days (6.8%), all in 2024–25, the same period where the ACI plot and the e-backtest showed FHS underestimating the tail. 
+The rule imposed in the method selects a $\gamma = 0.005$ and the model based on this choice provides a near-perfect coverage. This model is not perfect though, as it needs infinite VaR on 91 of 1,336 days (6.8%), all in 2024-2025, the same period where the ACI plot and the e-backtest showed FHS underestimating the tail. 
 
-In contrast, FHS passes out-of-sample without any infinite-VaR days. Thus,  ACI improves calibration, but at a practical cost that depends on how volatile the period is. 
+In contrast, FHS passes out-of-sample without any infinite-VaR days. Thus, ACI improves calibration, but at a practical cost that depends on how volatile the period is. 
 
 Lastly, the $\gamma = 0.001$ used earlier is shown for comparison only. Switching to it now would again mean choosing after seeing the results.
 
@@ -311,6 +349,8 @@ The table shows the results of the McNeil-Frey test for each of the three base m
 
 HS also fails, with a p-value of less than 0.01. Its 250-day window adapts slowly, so after a volatility shock its ES stays too low and losses on breach days are much larger than predicted. Finally, FHS passes. The mean residual is small and not significant, so FHS captures both the frequency and the size of tail losses. It is the only one of the three models that passes both the VaR and the ES backtests.
 
+With a 500-day window (2,422-day sample), FHS gives a mean residual of -0.133 (p = 0.710, bootstrap p = 0.688). The residual is negative, so the ES is slightly conservative on breach days.
+
 Importantly, HS residuals are scaled by a rolling standard deviation rather than EWMA volatility, so its mean residual is not on exactly the same scale as the other two. The pass or fail conclusions are still comparable.
 
 As a robustness check, the p-values are also computed with a bootstrap, following McNeil and Frey (2000). The residuals are de-meaned to impose $H_0$ and resampled with replacement 10,000 times. The p-value then represents the share of bootstrap t-statistics at least as large as the observed one. The bootstrap p-values are close to the t-test values and lead to the same conclusions: HS and EWMA fail, and only FHS passes.
@@ -324,20 +364,20 @@ As a robustness check, the p-values are also computed with a bootstrap, followin
 | FHS (250-day) | 3 Apr 2025 | 32 |
 | FHS (500-day)* | never | 1.0 |
 
-*Evaluated from 2017, the first date with 500 days of history.
+\*Evaluated from 2017, the first date with 500 days of history.
 
 
 <p align="center">
-  <img src="results/e_backtest_wealth_adaptive.png" alt="ACI-FHS alpha over time" width="700">
+  <img src="results/e_backtest_wealth_adaptive.png" alt="E-backtest wealth with adaptive lambda" width="700">
 </p>
 
 *E-backtest wealth with adaptive λ. Crosses mark rejection dates.*
 
 The table and figure above show the e-backtest of the three base methods in this project. First, EWMA is rejected within about 1.5 years of the start of the backtest. Its normal tails are detectably wrong almost immediately. Second, HS passes for approximately 4 years, until the COVID-19 crash. Its slow 250-day window is again the main cause.
 
-Third, the FHS based on a sample of 250 days is borderline, as can be seen more clearly in the figure. It crosses just above 20 in April 2025 on the full sample, but not when starting in 2017. Its weak point is the ES: with a 250-day window, the 99% ES rests on only 2–3 observations, so the ES–VaR gap is sometimes too small (mean e-value 2.13, against 1 for a correct model).
+Third, the FHS with a 250-day window is rejected, but only just, as can be seen more clearly in the figure. It crosses just above 20 in April 2025 on the full sample, but not when starting in 2017. Its weak point is the ES: with a 250-day window, the 99% ES rests on only 2-3 observations, so the ES-VaR gap is sometimes too small (mean e-value 2.13, against 1 for a correct model).
 
-The FHS-500 never crosses the threshold, and its wealth never rises above its starting value (mean e-value 1.34). A longer window thus stabilises the ES and is better suited to estimating ES at the 99% level.
+The FHS-500 never crosses the threshold, and its wealth never rises above its starting value (mean e-value 1.34). A longer window thus stabilises the ES and is better suited to estimating ES at the 99% level. However, its VaR breaches are slightly clustered (independence p = 0.049).
 
 Therefore, the e-backtest agrees with Kupiec, Christoffersen and McNeil-Frey on EWMA and HS, but adds something they missed. McNeil-Frey passed FHS with a 250-day window, while the e-backtest shows that its ES is unstable on a few shock days. It also shows when a model fails, not only whether it does.
 
@@ -349,14 +389,14 @@ Therefore, the e-backtest agrees with Kupiec, Christoffersen and McNeil-Frey on 
 | 0.02 | 9 Sep 2016 | 12 Mar 2020 | never |
 | 0.05 | 8 Feb 2018 | never | never |
 
-The table above shows the same e-backtest with fixed $\lambda$ for robustness. As expected, the results depend on this parameter, which is the reason for choosing $\lambda$ adaptively. EWMA is rejected for every $\lambda$, and HS and FHS are only ever rejected on major shock dates (COVID-19 and the April 2025 sell-off). Since several models, windows and start dates were tested, the single borderline rejection of FHS with a 250-day window should not be over-interpreted
+The table above shows the same e-backtest with fixed $\lambda$ for robustness. As expected, the results depend on this parameter, which is the reason for choosing $\lambda$ adaptively. EWMA is rejected for every $\lambda$, and HS and FHS are only ever rejected on major shock dates (COVID-19 and the April 2025 sell-off). Since several models, windows and start dates were tested, the single borderline rejection of FHS with a 250-day window should not be over-interpreted.
 
 ## References
 
-- Christoffersen, P. F. (1998). Evaluating interval forecasts. *International Economic Review*, 39(4), 841–862.
+- Christoffersen, P. F. (1998). Evaluating interval forecasts. *International Economic Review*, 39(4), 841-862.
 - Christoffersen, P. F. (2012). *Elements of Financial Risk Management* (2nd ed.). Academic Press.
 - Gibbs, I., & Candès, E. (2021). Adaptive conformal inference under distribution shift. *Advances in Neural Information Processing Systems*, 34.
-- Kupiec, P. H. (1995). Techniques for verifying the accuracy of risk measurement models. *Journal of Derivatives*, 3(2), 73–84.
+- Kupiec, P. H. (1995). Techniques for verifying the accuracy of risk measurement models. *Journal of Derivatives*, 3(2), 73-84.
 - McNeil, A. J., & Frey, R. (2000). Estimation of tail-related risk measures for heteroscedastic financial time series: an extreme value approach. *Journal of Empirical Finance*, 7(3-4), 271-300.
-- Parkinson, M. (1980). The extreme value method for estimating the variance of the rate of return. *Journal of Business*, 53(1), 61–65.
+- Parkinson, M. (1980). The extreme value method for estimating the variance of the rate of return. *Journal of Business*, 53(1), 61-65.
 - Wang, Q., Wang, R., & Ziegel, J. (2025). E-backtesting. *Management Science*. https://arxiv.org/abs/2209.00991
