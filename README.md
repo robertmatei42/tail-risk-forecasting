@@ -190,8 +190,7 @@ By Ville's inequality, this keeps the false-rejection probability at or below $\
 A fixed $\lambda$ is an arbitrary choice, and has a strong influence on results. Thus, following Wang, Wang and Ziegel (2025), an additional method is introduced. Here, $\lambda$ is chosen each day as the value that would have maximised the wealth growth on past e-values.
 
 ```math
-\lambda_t =  \arg\max_{\lambda\in[0,0.5]}\sum_{s<t}\log(1-
-\lambda+\lambda e_s)
+\lambda_t = \arg\max_{\lambda \in [0, 0.5]} \sum_{s \lt t} \log(1 - \lambda + \lambda e_s)
 ```
 
 Importantly, since $\lambda_t$ uses only the past, the false-rejection guarantee is kept.
