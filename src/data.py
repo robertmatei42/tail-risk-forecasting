@@ -42,15 +42,6 @@ def compute_losses(prices: pd.DataFrame) -> pd.Series:
 
     return loss.dropna().rename('loss')
 
-
-def parkinson_variance(prices: pd.DataFrame) -> pd.Series:
-    """Returns the Parkinson daily ranged-based proxy for realized variance as a Series."""
-
-    highoverlow = np.log(prices['High'] / prices['Low'])
-    parkinson_var = (1 / (4 * np.log(2))) * highoverlow ** 2
-
-    return parkinson_var.rename("parkinson_var")
-
 def check_prices(prices: pd.DataFrame) -> dict:
     """Verifies a given DataFrame for missing, non-positive, High<Low, Closes outside the daily range, stale quotes, duplicate dates, or unsorted index"""
 
